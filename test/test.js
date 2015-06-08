@@ -4,6 +4,12 @@ var assert = require('chai').assert;
 var shortquest = require('../');
 var nock = require('nock');
 var validator = require('is-my-json-valid');
+var fs = require('fs-extra');
+var _ = require('lodash');
+var S = require('string');
+
+var RULE_DOC_FILE = "RULES.md";
+var SCHEMA_FILE = "shortquest.schema.json";
 
 var initial = function(key) {
     var r = {};
@@ -716,15 +722,53 @@ describe('shortquest node module', function() {
         }, value);
     };
 
+    var checkTriggerOnTag = function(name, value, tag) {
+        return shortquest(validConf).triggers[name]({
+            tags: ["mustHaveTag", tag]
+        }, value);
+    };
+
 
     it('must check uri starts with', function() {
         assert.isTrue(checkTriggerOnUri("uri starts with", "curie", "curie:123"));
         assert.isFalse(checkTriggerOnUri("uri starts with", "alpha", "curie:123"));
+        assert.isFalse(checkTriggerOnUri("uri does not start with", "curie", "curie:123"));
+        assert.isTrue(checkTriggerOnUri("uri does not start with", "alpha", "curie:123"));
     });
 
     it('must check uri ends with', function() {
         assert.isTrue(checkTriggerOnUri("uri ends with", ".jpg", "curie:123.jpg"));
         assert.isFalse(checkTriggerOnUri("uri ends with", ".jpg", "curie:123.png"));
+        assert.isFalse(checkTriggerOnUri("uri does not end with", ".jpg", "curie:123.jpg"));
+        assert.isTrue(checkTriggerOnUri("uri does not end with", ".jpg", "curie:123.png"));
+    });
+
+    it('must check uri contains', function() {
+        assert.isTrue(checkTriggerOnUri("uri contains", "env/", "mysite:env/123.png"));
+        assert.isFalse(checkTriggerOnUri("uri contains", "env/", "mysite:123.png"));
+        assert.isFalse(checkTriggerOnUri("uri does not contain", "env/", "mysite:env/123.png"));
+        assert.isTrue(checkTriggerOnUri("uri does not contain", "env/", "mysite:123.png"));
+    });
+
+    it('must check uri matches regex', function() {
+        assert.isTrue(checkTriggerOnUri("uri matches regex", "^curie:[0-9]+.jpg$", "curie:123.jpg"));
+        assert.isFalse(checkTriggerOnUri("uri matches regex", "curie:[a-z]+.jpg", "curie:123.png"));
+        assert.isFalse(checkTriggerOnUri("uri does not match regex", "^curie:[0-9]+.jpg$", "curie:123.jpg"));
+        assert.isTrue(checkTriggerOnUri("uri does not match regex", "curie:[a-z]+.jpg", "curie:123.png"));
+    });
+
+    it('must check uri has params', function() {
+        assert.isTrue(checkTriggerOnUri("uri has params", "", "curie:123.jpg?param=yes"));
+        assert.isFalse(checkTriggerOnUri("uri has params", "", "curie:123.png"));
+        assert.isFalse(checkTriggerOnUri("uri does not have params", "", "curie:123.jpg?param=yes"));
+        assert.isTrue(checkTriggerOnUri("uri does not have params", "", "curie:123.png"));
+    });
+
+    it('must check tag is', function() {
+        assert.isTrue(checkTriggerOnTag("tag is", "beautify", "beautify"));
+        assert.isFalse(checkTriggerOnTag("tag is", "beautify", "no beauty"));
+        assert.isFalse(checkTriggerOnTag("tag is not", "beautify", "beautify"), "not");
+        assert.isTrue(checkTriggerOnTag("tag is not", "beautify", "no beauty"), "not");
     });
 
     //When
@@ -1359,9 +1403,80 @@ describe('shortquest node module', function() {
     it('must validate rules with json-schema', function() {
         var jsonSchema = shortquest(validConf).jsonSchema();
         var validate = validator(jsonSchema);
-        assert.isTrue(validate(validConf));
+        assert.isTrue(validate(validConf), JSON.stringify(validate.errors, null, "   "));
+        fs.outputFileSync(SCHEMA_FILE, JSON.stringify(jsonSchema,null,"   "));
     });
 
+    var paramExample = function(value) {
+        if (S(value).contains("yes/no")) {
+            return "yes";
+        }
+        if (S(value).contains("(")) {
+            return S(value).between('(', ',').s;
+        }
 
+        return "my " + value;
+    };
+
+    it('must provide documentation', function() {
+        var cfg = shortquest(validConf);
+        var actionDocs = cfg.actionsDoc();
+        var triggersDoc = cfg.triggersDoc();
+        assert.isNotNull(actionDocs);
+        assert.isNotNull(triggersDoc);
+
+        var readme = "# Shortquest Rules\n";
+
+        readme += "## Triggers\n\n";
+
+        _.forIn(triggersDoc, function(params, triggerName) {
+            assert.isTrue(_.has(cfg.triggers, triggerName), triggerName);
+            readme += "### " + triggerName + "\n\n";
+            var paramsCount = _.size(params);
+            readme += paramsCount === 1 ? "With one parameter:\n" : "With " + paramsCount + " parameters:\n";
+            _.forEach(params, function(param) {
+                readme += " - " + param + "\n";
+            });
+            readme += "\nExample:\n```\n";
+            var paramEx = paramsCount===0?"":paramExample(params[0]);
+            var actionEx = {
+                when: [{
+                    trigger: triggerName,
+                    value: paramEx
+                }],
+                then: []
+            };
+            readme += JSON.stringify(actionEx, null, "   ");
+            readme += "\n```\n\n";
+
+        });
+
+
+        readme += "## Actions\n\n";
+
+        _.forIn(actionDocs, function(params, actionName) {
+            assert.isTrue(_.has(cfg.actions, actionName), actionName);
+            readme += "### " + actionName + "\n\n";
+            var paramsCount = _.size(params);
+            readme += paramsCount === 1 ? "With one parameter:\n" : "With " + paramsCount + " parameters:\n";
+            _.forEach(params, function(param) {
+                readme += " - " + param + "\n";
+            });
+            readme += "\nExample:\n```\n";
+            var paramsExamples = _.map(params, paramExample);
+            var actionEx = {
+                when: [],
+                then: [{
+                    action: actionName,
+                    values: paramsExamples
+                }]
+            };
+            readme += JSON.stringify(actionEx, null, "   ");
+            readme += "\n```\n\n";
+
+        });
+
+        fs.outputFileSync(RULE_DOC_FILE, readme);
+    });
 
 });

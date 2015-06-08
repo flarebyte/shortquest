@@ -43,7 +43,7 @@ var uriStartsWith = function(quest, term) {
 };
 
 var uriNotStartsWith = function(quest, term) {
-    return !uriStartsWith(quest.uri, term);
+    return !uriStartsWith(quest, term);
 };
 
 var uriEndsWith = function(quest, term) {
@@ -51,7 +51,7 @@ var uriEndsWith = function(quest, term) {
 };
 
 var uriNotEndsWith = function(quest, term) {
-    return !uriEndsWith(quest.uri, term);
+    return !uriEndsWith(quest, term);
 };
 
 var uriContains = function(quest, term) {
@@ -59,16 +59,16 @@ var uriContains = function(quest, term) {
 };
 
 var uriNotContains = function(quest, term) {
-    return !uriContains(quest.uri, term);
+    return !uriContains(quest, term);
 };
 
 var uriRegex = function(quest, regex) {
     var rx = new RegExp(regex);
-    return rx.matches(quest.uri);
+    return !_.isNull(quest.uri.match(rx));
 };
 
 var uriNotRegex = function(quest, regex) {
-    return !uriRegex(quest.uri, regex);
+    return !uriRegex(quest, regex);
 };
 
 var uriHasParams = function(quest) {
@@ -76,24 +76,15 @@ var uriHasParams = function(quest) {
 };
 
 var uriHasNoParam = function(quest) {
-    return !uriHasParams(quest.uri);
+    return !uriHasParams(quest);
 };
 
-
-var isLocalHost = function(quest) {
-    return S(quest.uri).startsWith("localhost");
+var tagIs = function(quest, tag) {
+    return _.includes(quest.tags, tag);
 };
 
-var isNotLocalHost = function(quest) {
-    return !isLocalHost(quest.uri);
-};
-
-var isSecure = function(quest) {
-    return S(quest.uri).startsWith("https://");
-};
-
-var isNotSecure = function(quest) {
-    return !isSecure(quest.uri);
+var tagIsNot = function(quest, tag) {
+    return !tagIs(quest, tag);
 };
 
 
@@ -104,16 +95,30 @@ var triggers = {
     "uri does not end with": uriNotEndsWith,
     "uri contains": uriContains,
     "uri does not contain": uriNotContains,
-    "uri regex": uriRegex,
-    "not uri regex": uriNotRegex,
+    "uri matches regex": uriRegex,
+    "uri does not match regex": uriNotRegex,
     "uri has params": uriHasParams,
     "uri does not have params": uriHasNoParam,
-    "uri is localhost": isLocalHost,
-    "uri is not localhost": isNotLocalHost,
-    "uri is secure": isSecure,
-    "uri is not secure": isNotSecure
+    "tag is": tagIs,
+    "tag is not": tagIsNot,
 };
 
+var triggersDoc = function() {
+    return {
+        "uri starts with": ["term (wikipedia:,..)"],
+        "uri does not start with": ["term (wikipedia:,..)"],
+        "uri ends with": ["term (.jpg,..)"],
+        "uri does not end with": ["term (.jpg,..)"],
+        "uri contains": ["term (.env.,..)"],
+        "uri does not contain": ["term (env,..)"],
+        "uri matches regex": ["regular expression (^curie:[0-9]+.jpg$,..)"],
+        "uri does not match regex": ["regular expression (^curie:[0-9]+.jpg$,..)"],
+        "uri has params": [],
+        "uri does not have params": [],
+        "tag is": ["tag name (YAML,..)"],
+        "tag is not": ["tag name (Beautify,..)"],
+    };
+};
 var testWhen = function(when, quest) {
     return _.every(when, function(singleWhen) {
         return triggers[singleWhen.trigger](quest, singleWhen.value);
@@ -414,6 +419,48 @@ var actions = {
 
 };
 
+var DOC_BOOL = "boolean (true/false,yes/no)";
+var actionsDoc = function() {
+    return {
+        "set authorization": ["user", "password"],
+        "set authorization send immediately": [DOC_BOOL],
+        "set authorization bearer": ["bearer token"],
+        "set OAuth": ["consumer key", "consumer secret", "token", "token secret"],
+        "set OAuth HMAC-SHA1": ["consumer key", "private key", "token", "token secret"],
+        "set OAuth body hash": [DOC_BOOL],
+        "set OAuth transport method": ["transport method (query, body, header)"],
+        "set SSL client": ["cert path (/etc/pki/client.crt,..)", "key path (/etc/pki/client.key,..)", "passphrase"],
+        "set SSL client PFX": ["PFX path (/etc/pki/client.pfx,..)", "passphrase"],
+        "set SSL Certificate Authority": ["CA path (/etc/pki/ca.pem,..)"],
+        "set SSL security options": ["SSL option (SSL_OP_NO_SSLv3,..)"],
+        "set SSL secure protocol": ["SSL protocol (SSLv3_method,..)"],
+        "set AWS": ["access key", "secret"],
+        "set AWS bucket": ["bucket name"],
+        "set request parameter": ["parameter name", "value"],
+        "set request parameter as integer": ["parameter name", "integer value (12,..)"],
+        "set request parameter as past date time": ["parameter name", "number (8,..)", "unit (hours,minutes, seconds,...)", "time format (h:mm:ss,..)"],
+        "set request parameter as date time starting of": ["parameter name", "unit (hours,minutes, seconds,...)", "time format (h:mm:ss,..)"],
+        "set header parameter": ["header name", "value"],
+        "set header parameter as integer": ["header name", "integer value (15,..)"],
+        "set header parameter as past date time": ["header name", "number (7,..)", "unit (hours,minutes, seconds,...)", "time format (h:mm:ss,..)"],
+        "set header parameter as date time starting of": ["header name", "unit (hours,minutes, seconds,...)", "time format (h:mm:ss,..)"],
+        "set proxy": ["http proxy (http://localproxy.com,..)"],
+        "set encoding": ["character encoding (utf8,..)"],
+        "set method": ["HTTP method (GET,PUT,POST,DELETE, HEAD,PATCH)"],
+        "set JSON": [DOC_BOOL],
+        "set follow redirect": [DOC_BOOL],
+        "set GZIP": [DOC_BOOL],
+        "set jar": [DOC_BOOL],
+        "set strict SSL": [DOC_BOOL],
+        "set time": [DOC_BOOL],
+        "set timeout in ms": ["time in milliseconds (10000,..)"],
+        "replace start": ["search term at start of the uri (wikipedia:,news:,gist:,..)", "replacement term (http://wikipedia.org/,)"],
+        "replace all": ["search term (env,..)", "replacement term (stage,..)"],
+        "set custom": ["key (yaml,..)", "value (beautify,..)"]
+
+    };
+};
+
 var triggerSchema = Joi.object().keys({
     trigger: Joi.string().valid(_.keys(triggers)).required(),
     value: Joi.string()
@@ -597,21 +644,92 @@ var normalizeQuest = function(made) {
 };
 
 var rulesJsonSchema = function() {
-    var schm = {
-        name: 'shortquest',
-        properties: {
-            name: {
-                description: "Name of the rules",
-                type: "string",
-                required: false
-            },
-            rules: {
-                type: "array"
+
+    var rschema = {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "id": "/",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "rules": {
+                "id": "rules",
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5000,
+                "uniqueItems": false,
+                "additionalItems": false,
+                "items": {
+                    "id": "rule",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "when": {
+                            "id": "when",
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 10,
+                            "uniqueItems": false,
+                            "additionalItems": false,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "trigger": {
+                                        "id": "trigger",
+                                        "type": "string",
+                                        "enum": _.keys(triggers)
+                                    },
+                                    "value": {
+                                        "id": "value",
+                                        "type": "string",
+                                        "minLength": 1,
+
+                                    }
+                                }
+                            },
+
+                        },
+                        "then": {
+                            "id": "then",
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "uniqueItems": false,
+                            "additionalItems": false,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "action": {
+                                        "id": "action",
+                                        "type": "string",
+                                        "enum": _.keys(actions)
+                                    },
+                                    "values": {
+                                        "id": "values",
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 10,
+                                        "uniqueItems": false,
+                                        "additionalItems": false,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
             }
-        }
+        },
+        "required": [
+            "rules"
+        ]
     };
-    return schm;
+    return rschema;
 };
+
 
 // Creation of shortquest instance
 module.exports = function(config) {
@@ -717,8 +835,10 @@ module.exports = function(config) {
     var shortquest = {
         configuration: getConfiguration,
         triggers: triggers,
+        triggersDoc: triggersDoc,
         assertRequestOpts: assertRequestOpts,
         actions: actions,
+        actionsDoc: actionsDoc,
         testWhen: testWhen,
         whichActions: whichActions,
         make: make,
