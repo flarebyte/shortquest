@@ -948,6 +948,48 @@ describe('shortquest node module', function() {
         assert.deepEqual(r, expected);
     });
 
+
+    it('must make a SSL Configuration', function() {
+        var conf = {
+            rules: [{
+                when: [triggerVal("uri starts with", "curie:")],
+                then: [
+                    actionVal('set SSL client', ['test/dummy1.txt', 'test/dummy2.txt', 'pass123']),
+                    actionVal('set SSL Certificate Authority', ['test/dummy3.txt']),
+                    actionVal('set SSL Certificate Authority', ['test/dummy3.txt']), //twice to encourage cache
+                    actionVal('replace start', ['curie:', 'http://myweb.com/'])
+                ]
+            }, {
+                when: [triggerVal("uri ends with", ".jpg")],
+                then: [
+                    actionVal('set request parameter', ['media', 'jpg'])
+                ]
+            }, ]
+        };
+        var quest = {
+            uri: "curie:latest/123.jpg"
+        };
+        var r = shortquest(conf).make(quest);
+
+        var expected = {
+            uri: 'http://myweb.com/latest/123.jpg',
+            agentOptions: {
+                cert: "dummy-content-1",
+                key: "dummy-content-2",
+                passphrase: "pass123",
+                ca: "dummy-content-3"
+            },
+            qs: {
+                media: 'jpg'
+            },
+            method: 'GET'
+
+        };
+
+        assert.deepEqual(r, expected);
+    });
+
+
     var simpleConf = {
         rules: [{
             when: [triggerVal("uri starts with", "curie:")],
@@ -1404,7 +1446,7 @@ describe('shortquest node module', function() {
         var jsonSchema = shortquest(validConf).jsonSchema();
         var validate = validator(jsonSchema);
         assert.isTrue(validate(validConf), JSON.stringify(validate.errors, null, "   "));
-        fs.outputFileSync(SCHEMA_FILE, JSON.stringify(jsonSchema,null,"   "));
+        fs.outputFileSync(SCHEMA_FILE, JSON.stringify(jsonSchema, null, "   "));
     });
 
     var paramExample = function(value) {
@@ -1438,7 +1480,7 @@ describe('shortquest node module', function() {
                 readme += " - " + param + "\n";
             });
             readme += "\nExample:\n```\n";
-            var paramEx = paramsCount===0?"":paramExample(params[0]);
+            var paramEx = paramsCount === 0 ? "" : paramExample(params[0]);
             var actionEx = {
                 when: [{
                     trigger: triggerName,
