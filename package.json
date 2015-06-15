@@ -1,6 +1,6 @@
 {
   "name": "shortquest",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "HTTP request client supporting shortcut urls",
   "homepage": "https://github.com/flarebyte/shortquest",
   "author": {
