@@ -5,6 +5,7 @@ var _ = require('lodash');
 var moment = require('moment');
 var httpRequest = require('request');
 var bluePromise = require("bluebird");
+var fs = require('fs-extra');
 
 var assertArgsLength = function(p, size) {
     Joi.assert(p.values, Joi.array(Joi.string()).length(size));
@@ -516,13 +517,13 @@ var oauthSchema = Joi.object().keys({
 
 
 var agentOptions = Joi.object().keys({
-    cert: Joi.binary().min(10),
+    cert: Joi.string().min(10),
     certPath: Joi.string().min(4).max(1000).example('/etc/pki/client.crt'),
-    key: Joi.binary().min(10),
+    key: Joi.string().min(10),
     keyPath: Joi.string().min(4).max(1000).example('/etc/pki/client.key'),
-    pfx: Joi.binary().min(10),
+    pfx: Joi.string().min(10),
     pfxPath: Joi.string().min(4).max(1000).example('/etc/pki/client.pfx'),
-    ca: Joi.binary().min(10),
+    ca: Joi.string().min(10),
     caPath: Joi.string().min(4).max(1000).example('/etc/pki/ca.cert.pem'),
     passphrase: Joi.string().min(1).max(1000),
     securityOptions: Joi.string().valid('SSL_OP_NO_SSLv3'),
@@ -628,6 +629,10 @@ var ensureArrayOfKeyValues = function(keyValues) {
     return kvArray;
 };
 var normalizeQuest = function(made) {
+    delete made.agentOptions.certPath;
+    delete made.agentOptions.keyPath;
+    delete made.agentOptions.pfxPath;
+    delete made.agentOptions.caPath;
     deleteIfEmpty(made, 'auth');
     deleteIfEmpty(made, 'oauth');
     deleteIfEmpty(made, 'aws');
@@ -765,6 +770,33 @@ module.exports = function(config) {
         return _.uniq(acts, _comp);
     };
 
+    var fileContents = {};
+    var readFileContent = function(path) {
+        if (_.has(fileContents, path)) {
+            return fileContents[path];
+        } else {
+            var content = fs.readFileSync(path, {
+                encoding: 'utf8'
+            });
+            fileContents[path] = content;
+            return content;
+        }
+    };
+    var loadFiles = function(made) {
+        if (_.has(made, 'agentOptions.certPath')) {
+            made.agentOptions.cert = readFileContent(made.agentOptions.certPath);
+        }
+        if (_.has(made, 'agentOptions.keyPath')) {
+            made.agentOptions.key = readFileContent(made.agentOptions.keyPath);
+        }
+        if (_.has(made, 'agentOptions.pfxPath')) {
+            made.agentOptions.pfx = readFileContent(made.agentOptions.pfxPath);
+        }
+        if (_.has(made, 'agentOptions.caPath')) {
+            made.agentOptions.ca = readFileContent(made.agentOptions.caPath);
+        }
+    };
+
     var makeQuest = function(quest) {
         var acts = whichActions(quest);
         var made = createQuest(quest);
@@ -778,6 +810,7 @@ module.exports = function(config) {
             made.method = 'GET';
         }
         assertRequestOpts(made);
+        loadFiles(made);
         normalizeQuest(made);
         return made;
     };
