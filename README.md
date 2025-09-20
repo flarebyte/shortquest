@@ -12,6 +12,10 @@ Key features
 - Streams, callbacks, and Promise API
 - Strong input validation via Joi
 
+## Project Status
+
+This project is at a crossroads: its future direction and maintenance status are under evaluation. Before adopting in new projects, review modernization options and alternatives in `CODE_ANALYSIS.md`. Contributions are welcome to help decide whether to evolve the library (modern HTTP client, TypeScript, updated tooling) or to archive it in favor of a thin rules layer atop a maintained client.
+
 ## Install
 
 ```sh
