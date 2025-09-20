@@ -1,29 +1,16 @@
-#  [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][daviddm-url]][daviddm-image]
+# [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][daviddm-url]][daviddm-image]
 
-> HTTP request client supporting shortcut urls
+Rule‑driven HTTP requests with shortcut URIs (curie‑style).
 
-This library has the following purposes:
- - provide shortcuts for urls the same way a curie would (e.g wiki:picasso instead of http://mywiki.com/picasso).
- - provide contextualisation for urls (e.g env becomes stage in http://env.mywiki.com/picasso)
- - provide automatic headers based on rules.
- - provide automatic authentication based on rules.
- - provide automatic SSL certificates based on rules.
- - provide JSON support.
- - provide support for request.js.
- - provide support for (asynchronous) promises.
- - provide support for piping.
+Shortquest lets you describe how to transform compact URIs (e.g. `wiki:Picasso`) into full request options using a small declarative rules engine. It can inject headers, auth, SSL, parameters, and more — then execute the request or just return the built options.
 
-The main idea is help to store urls in a compact form.
-It is very similar to the concept of curie.
+Key features
 
-For instance:
-```
-{
-	name: "Picasso",
-	websites: ["wikipedia:Picasso","bbc:Picasso","tate:Picasso"]
-}
-```
-The exact urls, as well as all information concerning headers and authorisation are provided by the rules engine.
+- Shortcut URIs and contextual replacements (e.g., env → stage)
+- Automatic headers/auth/SSL based on rules
+- JSON and form support
+- Streams, callbacks, and Promise API
+- Strong input validation via Joi
 
 ## Install
 
@@ -31,128 +18,153 @@ The exact urls, as well as all information concerning headers and authorisation 
 $ npm install --save shortquest
 ```
 
-
-## Usage
-
-All the possible rules are described in details in RULES.md.
-You should also consult the request.js documentation as this library is used under the hood.
-In addition, the unit tests (test.js) are also a good source of examples.
-
-### GET Request
+## Quick Start
 
 ```js
-var shortquest = require('shortquest');
+const shortquest = require("shortquest");
 
-var rulesConf = {
-    rules: [{
-        when: [{
-            trigger: "uri starts with",
-            value: "wiki:"
-        }],
-        then: [{
-            action: "replace start",
-            values: ["wiki:", "http://mywiki.com/"]
-        }]
-    }]
+const rulesConf = {
+  rules: [
+    {
+      when: [{ trigger: "uri starts with", value: "wiki:" }],
+      then: [
+        { action: "replace start", values: ["wiki:", "http://mywiki.com/"] },
+      ],
+    },
+  ],
 };
-var myshortquest = shortquest(rulesConf);
 
-myshortquest.request("wiki:picasso", function(error, response, body) {
-            console.log(body);
-            //will get the body for url: http://mywiki.com/picasso
-        });
+const sq = shortquest(rulesConf);
+
+// Callback style
+sq.request("wiki:picasso", (err, res, body) => {
+  if (err) return console.error(err);
+  console.log(body); // body for http://mywiki.com/picasso
+});
+
+// Promise/async style
+(async () => {
+  const [res, body] = await sq.requestAsync("wiki:picasso");
+  console.log(res.statusCode, body);
+})();
 ```
 
-### POST, PUT, DELETE Requests
+## Rules Overview
 
-You could perform any kind of requests by specifying the method with POST,PUT,DELETE,PATCH or HEAD.
-The body could be some json or a string.
-Note that for a good JSON support you will need to add a "set JSON" rule.
+- All triggers and actions are documented in `RULES.md`.
+- A JSON Schema for rules is available in `shortquest.schema.json`.
 
-Example:
-```js
-myshortquest.request({
-            uri: "wiki:picasso",
-            method: 'POST',
-            body: {title: "good story"}
-        }, function(error, response, body) {
-            //log success or error
-        });
+Example rule: replace prefix and add a header
+
+```json
+{
+  "rules": [
+    {
+      "when": [{ "trigger": "uri starts with", "value": "api:" }],
+      "then": [
+        {
+          "action": "replace start",
+          "values": ["api:", "https://api.example.com/"]
+        },
+        {
+          "action": "set header parameter",
+          "values": ["X-Client", "shortquest"]
+        }
+      ]
+    }
+  ]
+}
 ```
 
-### Passing parameters
+## Common Examples
 
-You can pass request parameters with parameterObj:
-
-```js
-myshortquest.request({
-            uri: "wiki:picasso",
-            parameterObj: {search: "birth"}
-        }, function(error, response, body) {
-            //log success or error
-        });
-```
-
-### Passing a form
-
-You can pass a form with formObj:
-
-```js
-myshortquest.request({
-            uri: "wiki:picasso",
-            method: "POST",
-            formObj: {firstName: "Pablo"}
-        }, function(error, response, body) {
-            //log success or error
-        });
-```
-
-### Passing tags
-
-You can pass tags that can be used by the rule engine:
+POST JSON (enable JSON handling via rule)
 
 ```js
-myshortquest.request({
-            uri: "wiki:picasso",
-            method: "POST",
-            tags: ["sandbox", "XML"]
-        }, function(error, response, body) {
-            //log success or error
-        });
+sq.request(
+  {
+    uri: "api:articles",
+    method: "POST",
+    body: { title: "good story" },
+  },
+  cb
+);
+// Add rule: { action: 'set JSON', values: ['yes'] }
 ```
 
-### Pipe a request
+Query params and forms
 
-It is possible to pipe requests:
-
-Example:
 ```js
-myshortquest.request("curie:latest/123.jpg").pipe(requests.request({
-            uri: "curie:update/post123.json",
-            method: 'POST'
-        }));
+sq.request({ uri: "wiki:picasso", parameterObj: { search: "birth" } }, cb);
+sq.request(
+  { uri: "api:submit", method: "POST", formObj: { firstName: "Pablo" } },
+  cb
+);
 ```
 
-### Async
+Tags (used by rules)
 
-You can also do asynchronous requests using promises (we are using bluebird internally);
-
-Example:
 ```js
-    myshortquest.requestAsync("curie:latest/123.jpg").then(function(data) {
-        var response = data[0];
-        var body = data[1];
-     });
-
+sq.request(
+  { uri: "wiki:picasso", method: "POST", tags: ["sandbox", "XML"] },
+  cb
+);
 ```
+
+Streaming/piping
+
+```js
+const r1 = sq.request("curie:latest/123.jpg");
+const requests = require("request");
+r1.pipe(requests.request({ uri: "curie:update/post123.json", method: "POST" }));
+```
+
+SSL from file paths
+
+```js
+const rulesConf = {
+  rules: [
+    {
+      when: [{ trigger: "uri starts with", value: "curie:" }],
+      then: [
+        {
+          action: "set SSL client",
+          values: ["test/dummy1.txt", "test/dummy2.txt", "pass123"],
+        },
+        {
+          action: "set SSL Certificate Authority",
+          values: ["test/dummy3.txt"],
+        },
+        { action: "replace start", values: ["curie:", "http://myweb.com/"] },
+      ],
+    },
+  ],
+};
+```
+
+Schema & docs
+
+- See `RULES.md` for the full list of triggers and actions.
+- See `shortquest.schema.json` for a machine‑readable schema of rules.
+
+## API Surface
+
+- `shortquest(rules)`: factory returning an API.
+- `api.make(quest)`: build request options without executing.
+- `api.request(quest, cb)`: execute with callback.
+- `api.requestAsync(quest)`: Promise that resolves to `[response, body]`.
+- `api.triggersDoc()` / `api.actionsDoc()`: programmatic docs.
+- `api.jsonSchema()`: JSON Schema for rules.
+
+## Development
+
+- Run tests: `npm test`
+- Contributing: see `AGENTS.md`
+- Architecture and modernization notes: see `CODE_ANALYSIS.md`
 
 ## License
 
 MIT © [Olivier Huin]()
-
-## Contributors
-
-..and with the help of Aradhna ..
 
 [npm-url]: https://npmjs.org/package/shortquest
 [npm-image]: https://badge.fury.io/js/shortquest.svg
