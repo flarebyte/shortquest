@@ -74,3 +74,17 @@
   - Type safety (JSDoc -> TS phase 1) and types for rules/actions: 1–2 days; full TS migration: +2–3 days.
   - Docs/examples and RULES/Schema alignment: 1 day.
   - Total: approximately 1–2 weeks of engineer time depending on depth (single maintainer pace).
+
+## Alternatives (Similar Libraries)
+- Popular HTTP clients
+  - `axios`: mature, browser/Node, rich interceptors to emulate rules (map triggers to request interceptors, apply headers/auth/redirects). Ecosystem: retry, auth-refresh.
+  - `got`: Node-focused, powerful hooks and plugins; easy to implement trigger/action via `beforeRequest`/`hooks` and per-instance defaults.
+  - `undici`/WHATWG `fetch`: modern, standards-based; compose policies in a thin wrapper; use `Request`/`URL` for transformations.
+- Other clients
+  - `superagent`: long-standing, chainable API; extend via plugins/interceptors.
+  - `make-fetch-happen` (npm CLI): fetch with caching, proxies, CA/SSL options; useful for enterprise envs.
+  - `needle` / `wreck` / `bent`: lighter alternatives with Node focus; fewer features but small surface area.
+- Config-/rules-driven approaches
+  - Build a thin “policy engine” atop axios/got/fetch using interceptors/hooks to replicate Shortquest rules without maintaining a custom transport.
+  - For URI shortcuts, combine RFC 6570 URL templates (`url-template`, `uritemplate`) or a simple prefix map with the client of choice.
+  - For schema/validation, pair with `zod` or `joi` to validate policies and generated requests.
