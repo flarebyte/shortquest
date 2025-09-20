@@ -45,3 +45,32 @@
 - Validation drift: `Joi` rules must track `RULES.md` and JSON Schema; duplication risks inconsistency.
 - Security posture: examples use legacy SSL options (e.g., `SSLv3_method`) that are obsolete/insecure.
 
+## Modernization Plan (API, Tooling, Types)
+- API shape
+  - Promise-first API and async/await: deprecate callbacks; keep `request(quest)` returning a Promise and stream support via an explicit `requestStream(quest)`.
+  - Separate concerns: expose a pure `buildOptions(quest)` (rules -> options) and a transport layer `send(options)` so the engine is reusable with different HTTP clients.
+  - ESM-first with CJS compatibility: provide `exports` map, `type` field, and dual builds if needed.
+- Tooling updates
+  - Replace Grunt/JSHint with npm scripts + ESLint + Prettier; add `lint`, `format`, `typecheck`, `test` commands.
+  - Test runner: move from Mocha/Chai to Vitest or Jest; keep Nock (or MSW for higher-level tests). Add coverage via `c8`.
+  - CI: GitHub Actions matrix (Node 18/20/22), cache deps, run lint/tests/coverage. Enable Dependabot or Renovate.
+- TypeScript adoption
+  - Phase 1: JSDoc types + generated `.d.ts` for public API.
+  - Phase 2: Incremental TS migration (`src/*.ts`), build with `tsup` or `tsup/tsc`, emit ESM+CJS and types.
+  - Add strict types for rules (string literal unions for triggers/actions) to make configs IDE-friendly.
+- Modern dependencies
+  - HTTP client: replace `request` with `undici` (native) or `axios`; align options mapping and streaming behavior.
+  - Date/time: `moment` -> `dayjs` or `date-fns` (tree-shakable).
+  - Strings/URL: drop `string` lib; use native `String`/`URL` and regex. Prefer WHATWG `URL` for query handling.
+  - Promises: drop Bluebird; use native Promise and `util.promisify` only if needed.
+  - Validation: upgrade `joi` or consider `zod` for dev/runtime type alignment.
+  - Lodash: replace easy calls with native methods; keep only targeted utilities if measurable value.
+- Distribution
+  - Publish minimum bundle with proper `exports`, `sideEffects: false`, and source maps.
+  - Maintain semantic versioning and a migration guide (v1 -> v2).
+- Effort estimate (rough)
+  - HTTP client + API refactor (Promise-first, stream split): 2–4 days.
+  - Tooling swap (ESLint/Prettier/Jest or Vitest, GH Actions): 1–2 days.
+  - Type safety (JSDoc -> TS phase 1) and types for rules/actions: 1–2 days; full TS migration: +2–3 days.
+  - Docs/examples and RULES/Schema alignment: 1 day.
+  - Total: approximately 1–2 weeks of engineer time depending on depth (single maintainer pace).
